@@ -12,31 +12,36 @@ library(tidyverse)
 library(lubridate)
 
 ##Enter NEON site code and date range
-sitename <- "UNDE"
+sitename <- "STEI"
 startdate <- "2019-01"
 enddate <- "2019-12"
 
-dirfile <- tempdir()
+dirtemp <- tempdir()
+
+
+if (!dir.exists(paste0(dirtemp, "/", sitename))) {
+  dirfile <- dir.create(paste0(dirtemp, "/", sitename))
+}
 
 ##Download eddy co bundled data package
 zipsByProduct(dpID="DP4.00200.001", package="expanded",
                 site=c(sitename),
                 startdate=startdate, enddate=enddate,
-                savepath=dirfile,
+                savepath=paste0(dirtemp, "/", sitename),
                 check.size=F)
 
 ##Stack and save to list of data frames
-list_flux <- stackEddy(filepath="C:/Users/cslemmons/Documents/ExploreNEON/EDDY/filesToStack00200",
+list_flux <- stackEddy(paste0(dirtemp, "/", sitename, "/filesToStack00200"),
                   level = "dp04")
 
 ##save to data frame
 flux <- list_flux[[1]]
 
 ##Save flux data frame locally
-saveRDS(list_flux$UNDE, "C:/Users/cslemmons/Documents/ExploreNEON/EDDY/filesToStack00200/UNDEflux.rds")
+#saveRDS(list_flux$UNDE, "C:/Users/cslemmons/Documents/ExploreNEON/EDDY/filesToStack00200/UNDEflux.rds")
 
 ##Load flux data
-flux <- readRDS(file="C:/Users/cslemmons/Documents/ExploreNEON/EDDY/filesToStack00200/UNDEflux.rds")
+#flux <- readRDS(file="C:/Users/cslemmons/Documents/ExploreNEON/EDDY/filesToStack00200/UNDEflux.rds")
 
 ##Convert time stamp to R date - time format, add to data frame
 flux$TimeB <- as.POSIXct(flux$timeBgn,
@@ -66,10 +71,6 @@ NAsPerDay <- flux %>%
 ##calculate difference between raw and corrected flux, save to data frame. Calculate mean difference by month
 flux$DiffCor <- flux$data.fluxCo2.turb.fluxRaw - flux$data.fluxCo2.turb.fluxCor
 
-flux$DiffCor %>%
-  group_by(YearMonth) %>%
-  summarise(DiffCor = mean(DiffCor, na.rm=TRUE))
-
 fluxDiffbyMonth <- flux %>%
   mutate(DiffCor=data.fluxCo2.turb.fluxRaw-data.fluxCo2.turb.fluxCor) %>%
   group_by(YearMonth) %>%
@@ -93,7 +94,9 @@ finQFbyDay<-flux %>%
 ##Plot raw and corrected turbulent flux data for whole dataset
 ggplot(flux) +geom_point(aes(x=TimeB, y=data.fluxCo2.turb.fluxRaw, color="blue"))+
   geom_point(aes(x=TimeB, y=data.fluxCo2.turb.fluxCor, color="green"))+
-  labs(title="2019 TREE Turbulent Flux", x="Date", y="CO2 umol m2/s-1")+
+  labs(title=paste0(sitename, " 2019 Turbulent Flux"))+
+  xlab("Date")+
+  ylab("CO2 umol m2/s-1")+
   scale_color_identity(name=" ",
                        breaks = c("blue", "green"),
                        labels = c("Raw Flux","Corrected Flux"),
@@ -102,25 +105,27 @@ ggplot(flux) +geom_point(aes(x=TimeB, y=data.fluxCo2.turb.fluxRaw, color="blue")
 ##Plot mean difference between raw and corrected flux per Month
 ggplot(fluxDiffbyMonth) +geom_point(aes(x=YearMonth, y=DiffCor))+
   theme(axis.text.x=element_text(angle=90))+
-  labs(title="2019 TREE Difference Between Raw and Corrected Flux", x="Date", y="CO2 umol m2/s-1")
+  labs(title=paste0(sitename, " 2019 Difference Between Raw and Corrected Flux"), x="Date", y="CO2 umol m2/s-1")
 
 ##Plot mean difference between raw and corrected flux per day
 ggplot(fluxDiffbyDay) +geom_point(aes(x=YearMonthDay, y=DiffCor))+
   theme(axis.text.x=element_text(angle=90))+
   scale_x_discrete(breaks=c("2019-01-02","2019-02-02","2019-03-01","2019-04-01","2019-05-01", "2019-06-01", "2019-07-01", "2019-08-01", "2019-09-01", "2019-10-01", "2019-11-01", "2019-12-01"))+
-  labs(title="2019 TREE Mean Daily Difference Between Raw and Corrected Flux", x="Date", y="CO2 umol m2/s-1")
+  labs(title=paste0(sitename," 2019 Mean Daily Difference Between Raw and Corrected Flux"))+
+  xlab("Date")+
+  ylab("CO2 umol m2/s-1")
   
 ##Plot Percent NA and Percent QF by Month
 ggplot(NAsPerMonth) + aes(x=YearMonth, y=FluxCorNAPercent)+
   geom_col()+
   ylim(0,100)+
-    labs(x = "Date", y = "Percent", title = "TREE 2019 - Mean Percent of Missing Corrected Turbulent Flux")
+    labs(x = "Date", y = "Percent", title = paste0(sitename, " 2019 - Mean Percent of Missing Corrected Turbulent Flux"))
 
 ggplot(finQFbyMonth) + aes(x=YearMonth, y=QFPercent)+
   geom_col()+
   ylim(0,100)+
-  labs(x = "Date", y = "Percent", title = "TREE 2019 - Mean Percent of Quality Flags Turbulent Flux")
+  labs(x = "Date", y = "Percent", title = paste0(sitename, " 2019 - Mean Percent of Quality Flags Turbulent Flux"))
 
 ##save to CSV
-#savefilename <- "C:/Users/cslemmons/Documents/ExploreNEON/filesToStack00200/TREEFlux.csv"
-#write.table(flux, "C:/Users/cslemmons/Documents/ExploreNEON/filesToStack00200/TREEFlux.csv", sep=",")
+#savefilename <- "C:/Users/cslemmons/Documents/ExploreNEON/filesToStack00200/UNDEFlux.csv"
+#write.table(flux, "C:/Users/cslemmons/Documents/ExploreNEON/filesToStack00200/UNDEFlux.csv", sep=",")
