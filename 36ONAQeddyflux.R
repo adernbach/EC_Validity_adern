@@ -1,41 +1,55 @@
-devtools::install_github('NEONScience/NEON-utilities/neonUtilities', ref='master')
+#Script used to download and plot EC dp04 data to visualize the ECTE validations
+#Fill in the following section before running script:
+NEONsite <- "NOGP"
+dataAlreadyDL <- "Y"  #{"Y"/"N"}Are the data already downloaded? N=no, data are needed; Y=yes already downloaded  Assumes data are in [Working Directory File] > [SITE] file structure
+startDate <- "2019-01" #if you will download data, what date to start with [if dataAlreadyDL="Y", this won't matter]
+endDate <- "2019-12"   #if you will download data, what date to end with   [if dataAlreadyDL="Y", this won't matter]
+dirFile <- getwd() #change this to setwd("C:/Users/bla bla wherever your data are stored.  Assumes data are in SITE subfolders)
+#once these are filled out, simply click Source in top right corner of this window
 
-flux <- stackEddy(filepath="C:/Users/aliso/Documents/Git and R Projects/Other projects/filesToStack00200", level="dp04")
-#no longer get the error I wrote about in my daily notes but nonw stackeddy could not be found
 
-install.packages("neonUtilities")
-##don't need to install package, just make sure neonUtil is checked in packages on the right
-flux <- stackEddy(filepath="C:/Users/aliso/Documents/Git and R Projects/Other projects/filesToStack00200", level="dp04")
-## getting error about number of columns of arguments do not match
-## retried 20200415 and it worked! no errors, make sure neonUtil is loaded
+if (!require(neonUtilities)) install.packages('neonUtilities')
 library(neonUtilities)
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install("rhdf5")
+
+if (dataAlreadyDL == "n" | dataAlreadyDL == "N") { #will download data using zipsByProduct if dataAlreadyDL == N
+  zipsByProduct(dpID="DP4.00200.001", package="expanded",
+              site=NEONsite,
+              startdate=startDate, enddate=endDate,
+              savepath= paste0(dirFile,"/", NEONsite), #will save filesToStack in [Directory]>[SITE]>filesToStack
+              check.size=F)
+}
+
+flux <- stackEddy(filepath=paste0(dirFile,"/",NEONsite, "/filesToStack00200"),
+                  level="dp04")
+## If you get errors on column length, update neonUtilities with devtools::install_github('NEONScience/NEON-utilities/neonUtilities', ref='master')
+
+names(flux)[1] <- "site"  #dirty fix, might not be perfect to keep this method in
 names(flux)
-timeB <- as.POSIXct(flux$ONAQ$timeBgn, format="%Y-%m-%dT%H:%M:%S", tz="GMT")
-flux$ONAQ <- cbind(timeB, flux$ONAQ)
-plot(flux$ONAQ$data.fluxCo2.nsae.flux~timeB,pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
+timeB <- as.POSIXct(flux$site$timeBgn, format="%Y-%m-%dT%H:%M:%S", tz="GMT")
+flux$site <- cbind(timeB, flux$site)
+plot(flux$site$data.fluxCo2.nsae.flux~timeB,pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
 axis.POSIXct(1, x=timeB, format="%Y-%m-%d")
-
+title(paste0(NEONsite," CO2flux ", startDate, " - ", endDate))
 #plot turb flux
-plot(flux$ONAQ$data.fluxCo2.turb.flux~timeB,pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
-axis.POSIXct(1, x=timeB, format="%Y-%m-%d")
+#plot(flux$site$data.fluxCo2.turb.flux~timeB,pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
+#axis.POSIXct(1, x=timeB, format="%Y-%m-%d")
 
-plot(timeB, flux$ONAQ$data.fluxCo2.turb.flux, pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
-axis.POSIXct(1,x=timeB, format = "%Y-%m-%d")
+#plot(timeB, flux$site$data.fluxCo2.turb.flux, pch=".", xlab = "Date", ylab = "CO2 flux", xaxt="n")
+#axis.POSIXct(1,x=timeB, format = "%Y-%m-%d")
 
 #plot turb flux, fluxRaw, fluxCor on same graph. run all lines as same time
-###RUN THIS WHOLE SECTION TO GET GRAPH###
-library(neonUtilities)
-flux <- stackEddy(filepath="C:/Users/aliso/Documents/Git and R Projects/Other projects/filesToStack00200", level="dp04")
-timeB <- as.POSIXct(flux$ONAQ$timeBgn, format="%Y-%m-%dT%H:%M:%S", tz="GMT")
-flux$ONAQ <- cbind(timeB, flux$ONAQ)
-turb <- flux$ONAQ$data.fluxCo2.turb.flux
-fRaw <- flux$ONAQ$data.fluxCo2.turb.fluxRaw
-fCor <- flux$ONAQ$data.fluxCo2.turb.fluxCor
-plot(timeB, turb, pch=".", xlab = "Date", ylab = "CO2 flux", col="red", main = "2019 ONAQ CO2 Flux")
+turb <- flux$site$data.fluxCo2.turb.flux
+fRaw <- flux$site$data.fluxCo2.turb.fluxRaw
+fCor <- flux$site$data.fluxCo2.turb.fluxCor
+plot(timeB, turb, pch=".", xlab = "Date", ylab = "CO2 flux", col="red")
 points(timeB, fRaw, pch=".", col="green")
 points(timeB, fCor, pch=".", col="blue")
 legend("bottomright", c("fRaw","fCor"), fill = c("green", "blue"), bty = "n", y.intersp = 0.7)
+title(paste0(NEONsite," CO2flux ", startDate, " - ", endDate))
 
+##############I STOPPED HERE#########################-mw
 ###^^^ RUN THIS WHOLE SECTION TO GET GRAPH ^^^####
 #yellow showing on graph means the raw data was not corrected. checked, and corresponds to NaN in HDF viewer
 
